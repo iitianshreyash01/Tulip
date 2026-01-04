@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tulip's Adventure 🌷</title>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Quicksand:wght@400;600;700&family=Indie+Flower&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #ff8fab;
+            --secondary: #fb6f92;
+            --gold: #ffd700;
+            --text: #590d22;
+            --glass: rgba(255, 255, 255, 0.7);
+            --shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        body {
+            margin: 0; overflow-x: hidden;
+            background: linear-gradient(120deg, #ff9a9e 0%, #fecfef 100%);
+            font-family: 'Quicksand', sans-serif; color: var(--text);
+            padding-bottom: 100px;
+        }
+
+        canvas { position: fixed; top: 0; left: 0; pointer-events: none; z-index: 0; }
+
+        .container {
+            position: relative; z-index: 10; max-width: 600px;
+            margin: 0 auto; padding: 20px; text-align: center;
+        }
+
+        /* --- QUEST HUD --- */
+        .quest-hud {
+            position: fixed; top: 20px; right: 20px;
+            background: white; padding: 10px 20px; border-radius: 50px;
+            box-shadow: var(--shadow); z-index: 100; font-weight: bold;
+            display: flex; gap: 10px; align-items: center; border: 2px solid var(--gold);
+        }
+        .key-icon { opacity: 0.2; font-size: 1.5rem; transition: 0.5s; }
+        .key-icon.found { opacity: 1; transform: scale(1.2); text-shadow: 0 0 10px var(--gold); }
+
+        /* --- HEADERS --- */
+        h1 { font-family: 'Dancing Script', cursive; font-size: 3.5rem; margin: 0.5rem 0; text-shadow: 2px 2px white; cursor: pointer; }
+        h2 { font-size: 1.5rem; margin-top: 50px; margin-bottom: 20px; color: var(--secondary); font-weight: 800; }
+
+        /* --- HIDDEN KEYS (The Hunt) --- */
+        .hidden-key {
+            position: absolute; font-size: 2rem; cursor: pointer;
+            opacity: 0; transition: opacity 0.3s; z-index: 50;
+        }
+        .hidden-key:hover { opacity: 1; }
+        /* Key locations handled in specific sections */
+
+        /* --- THE VAULT (Locked Section) --- */
+        .vault-section {
+            background: rgba(255,255,255,0.5); border: 2px dashed var(--text);
+            border-radius: 20px; padding: 40px; margin-top: 50px; position: relative;
+            overflow: hidden; transition: 0.5s;
+        }
+        .vault-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); color: white;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 10; transition: 1s;
+        }
+        .vault-overlay.unlocked { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+        .vault-content { opacity: 0.5; filter: blur(5px); transition: 1s; }
+        .vault-section.open .vault-content { opacity: 1; filter: blur(0); }
+
+        /* --- QUIZ SECTION --- */
+        .quiz-card {
+            background: white; padding: 20px; border-radius: 15px; box-shadow: var(--shadow);
+            margin-bottom: 20px; text-align: left; display: none;
+        }
+        .quiz-card.active { display: block; animation: popIn 0.5s; }
+        .quiz-option {
+            background: #f0f0f0; padding: 10px; margin: 5px 0; border-radius: 8px;
+            cursor: pointer; transition: 0.2s;
+        }
+        .quiz-option:hover { background: var(--primary); color: white; }
+
+        /* --- CAROUSEL --- */
+        .gallery-container { perspective: 1000px; height: 260px; margin: 30px 0; }
+        .carousel {
+            width: 100%; height: 100%; transform-style: preserve-3d;
+            transform: translateZ(-350px); animation: rotate 20s infinite linear;
+        }
+        .photo-card {
+            position: absolute; width: 180px; height: 240px; left: calc(50% - 90px); top: 10px;
+            border-radius: 15px; background: white; padding: 5px; box-shadow: var(--shadow);
+        }
+        .photo-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+
+        /* --- JAR & COUPONS --- */
+        .jar-container { height: 200px; cursor: pointer; transition: 0.3s; position: relative; }
+        .jar-container:hover { transform: scale(1.05); }
+        .jar-emoji { font-size: 80px; display: block; animation: float 3s infinite; }
+        .paper-slip {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
+            background: #fff9c4; padding: 15px; width: 180px; font-family: 'Indie Flower';
+            box-shadow: var(--shadow); transition: 0.5s; opacity: 0;
+        }
+        .paper-slip.show { transform: translate(-50%, -100%) rotate(-5deg) scale(1); opacity: 1; }
+
+        .coupon-grid { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .coupon {
+            width: 140px; height: 80px; background: white; border-radius: 10px;
+            position: relative; overflow: hidden; cursor: pointer; box-shadow: var(--shadow);
+        }
+        .scratch-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #aaa; color: white; display: flex; align-items: center; justify-content: center;
+            font-weight: bold; transition: opacity 0.5s;
+        }
+        .scratch-layer.revealed { opacity: 0; pointer-events: none; }
+        .coupon-content { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff0f5; font-size: 0.8rem; }
+
+        /* --- STICKER WALL --- */
+        .wall-board {
+            height: 250px; background: rgba(255,255,255,0.8); border: 2px dashed var(--primary);
+            border-radius: 20px; position: relative; overflow: hidden; cursor: crosshair;
+        }
+        .wall-sticker { position: absolute; font-size: 2rem; transform: translate(-50%, -50%); animation: popIn 0.3s; }
+
+        /* --- MODAL --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.3); backdrop-filter: blur(5px); z-index: 200;
+            display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: 0.3s;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal { background: white; padding: 30px; border-radius: 20px; max-width: 80%; text-align: center; }
+
+        @keyframes rotate { from { transform: translateZ(-350px) rotateY(0deg); } to { transform: translateZ(-350px) rotateY(360deg); } }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <div class="quest-hud">
+        <span>KEYS:</span>
+        <span class="key-icon" id="key1">🌷</span>
+        <span class="key-icon" id="key2">🌷</span>
+        <span class="key-icon" id="key3">🌷</span>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1 onclick="checkTitleKey()">Tulip's World 🌷</h1>
+            <div class="subtitle">The Sister I Choose • Forever & Always</div>
+        </header>
+
+        <h2>🧠 Bestie Trivia</h2>
+        <div id="quiz-container">
+            <div class="quiz-card active" id="q1">
+                <p>What is our "Go-To" food order?</p>
+                <div class="quiz-option" onclick="nextQ('q1', 'q2')">Pizza & Coke 🍕</div>
+                <div class="quiz-option" onclick="nextQ('q1', 'q2')">Sushi 🍣</div>
+                <div class="quiz-option" onclick="nextQ('q1', 'q2')">Just Coffee ☕</div>
+            </div>
+            <div class="quiz-card" id="q2">
+                <p>Who is more likely to trip over nothing?</p>
+                <div class="quiz-option" onclick="nextQ('q2', 'q3')">Me</div>
+                <div class="quiz-option" onclick="nextQ('q2', 'q3')">You</div>
+            </div>
+            <div class="quiz-card" id="q3">
+                <p>Are we best friends forever?</p>
+                <div class="quiz-option" onclick="finishQuiz()">YES DUH! 💖</div>
+                <div class="quiz-option" onclick="finishQuiz()">OBVIOUSLY! ✨</div>
+            </div>
+            <div class="quiz-card" id="q-end">
+                <h3>You Passed! 🎉</h3>
+                <p>You know us so well.</p>
+            </div>
+        </div>
+
+        <div class="gallery-container">
+            <div class="carousel" id="carousel">
+                <div class="photo-card"><img src="https://images.unsplash.com/photo-1520763185298-1b434c919102?w=400" alt="1"></div>
+                <div class="photo-card"><img src="https://images.unsplash.com/photo-1554631221-f9603e6808ba?w=400" alt="2"></div>
+                <div class="photo-card"><img src="https://images.unsplash.com/photo-1620067652758-c2a74c243a7a?w=400" alt="3"></div>
+                <div class="photo-card"><img src="https://images.unsplash.com/photo-1566804866380-69279093e061?w=400" alt="4"></div>
+                <div class="photo-card"><img src="https://images.unsplash.com/photo-1463309995514-63304245cc90?w=400" alt="5"></div>
+            </div>
+        </div>
+
+        <h2>🍯 Jar of Sunshine</h2>
+        <div class="jar-container" onclick="pullNote()">
+            <span class="jar-emoji">🍯</span>
+            <div class="paper-slip" id="paper-slip">You are amazing!</div>
+        </div>
+
+        <h2>🎟️ Bestie Coupons</h2>
+        <div class="coupon-grid">
+            <div class="coupon" onclick="reveal(this)">
+                <div class="scratch-layer">Scratch Me</div>
+                <div class="coupon-content">☕ Free Coffee</div>
+            </div>
+            <div class="coupon" onclick="reveal(this)">
+                <div class="scratch-layer">Scratch Me</div>
+                <div class="coupon-content">🛌 Nap Time</div>
+            </div>
+        </div>
+
+        <h2>🖍️ Sticker Wall</h2>
+        <div class="wall-board" id="wall-board" onclick="addSticker(event)"></div>
+        <button onclick="clearWall()" style="border:none; background:none; opacity:0.5; margin-bottom: 20px;">(Clear)</button>
+
+        <div class="vault-section" id="vault">
+            <div class="vault-overlay" id="vault-lock">
+                <div style="font-size: 4rem;">🔒</div>
+                <h3>THE FOREVER VAULT</h3>
+                <p>Find 3 Golden Tulips to unlock</p>
+                <div id="vault-status">0/3 Keys Found</div>
+            </div>
+            <div class="vault-content">
+                <h2 style="font-family: 'Dancing Script'; font-size: 3rem; color: var(--gold);">Golden Letter 📜</h2>
+                <p style="font-size: 1.1rem; line-height: 1.8;">
+                    My Dearest Tulip,<br><br>
+                    If you are reading this, you found all the hidden keys! Just like you always find a way to make me smile.<br>
+                    You are the gold in my life. Thank you for being my unbiological sister.<br>
+                    <br>Love always,<br>Your Bestie.
+                </p>
+            </div>
+        </div>
+
+        <div style="margin-top: 100px; opacity: 0.8; font-size: 2rem; cursor: pointer;" onclick="foundKey(3)">🌷</div>
+    </div>
+
+    <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
+        <div class="modal">
+            <h2 id="modal-title"></h2>
+            <p id="modal-body"></p>
+            <button onclick="closeModal()" style="margin-top:10px; padding:5px 15px; background:var(--primary); color:white; border:none; border-radius:10px;">Close</button>
+        </div>
+    </div>
+
+    <script>
+        /* --- GAME STATE --- */
+        let keysFound = [false, false, false];
+        let jarClicks = 0;
+
+        function foundKey(id) {
+            if(keysFound[id-1]) return; // Already found
+            
+            keysFound[id-1] = true;
+            document.getElementById(`key${id}`).classList.add('found');
+            
+            // Celebration
+            loveBomb();
+            showModal("Key Found!", "You found a Golden Tulip! 🌷");
+
+            checkVault();
+        }
+
+        function checkVault() {
+            const count = keysFound.filter(Boolean).length;
+            document.getElementById('vault-status').innerText = `${count}/3 Keys Found`;
+            
+            if(count === 3) {
+                setTimeout(() => {
+                    document.getElementById('vault-lock').classList.add('unlocked');
+                    document.getElementById('vault').classList.add('open');
+                    loveBomb(); loveBomb(); // Double explosion
+                }, 1000);
+            }
+        }
+
+        /* --- 1. KEY LOGIC --- */
+        // Key 1: In Title
+        function checkTitleKey() {
+            foundKey(1);
+        }
+
+        // Key 2: In Jar (Random chance or 5th click)
+        const compliments = ["You glow! ✨", "So smart! 🧠", "Gorgeous! 💃", "Kind soul 💖"];
+        function pullNote() {
+            jarClicks++;
+            const slip = document.getElementById('paper-slip');
+            slip.classList.remove('show');
+            
+            setTimeout(() => {
+                if (jarClicks === 3 && !keysFound[1]) {
+                    slip.innerText = "YOU FOUND A KEY! 🌷";
+                    slip.style.background = "#ffd700";
+                    foundKey(2);
+                } else {
+                    slip.innerText = compliments[Math.floor(Math.random() * compliments.length)];
+                    slip.style.background = "#fff9c4";
+                }
+                slip.classList.add('show');
+            }, 200);
+        }
+
+        /* --- 2. QUIZ --- */
+        function nextQ(curr, next) {
+            document.getElementById(curr).style.display = 'none';
+            document.getElementById(next).classList.add('active');
+        }
+        function finishQuiz() {
+            document.getElementById('q3').style.display = 'none';
+            document.getElementById('q-end').classList.add('active');
+            loveBomb();
+        }
+
+        /* --- 3. STANDARD FEATURES --- */
+        function reveal(el) { el.querySelector('.scratch-layer').classList.add('revealed'); }
+        
+        // Sticker Wall
+        const wall = document.getElementById('wall-board');
+        const stickers = ['💖', '🌟', '🍩', '🐶'];
+        const savedStickers = JSON.parse(localStorage.getItem('tulip_stickers_adv') || '[]');
+        savedStickers.forEach(s => renderSticker(s.x, s.y, s.emoji));
+
+        function addSticker(e) {
+            const rect = wall.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const emoji = stickers[Math.floor(Math.random() * stickers.length)];
+            renderSticker(x, y, emoji);
+            savedStickers.push({x, y, emoji});
+            localStorage.setItem('tulip_stickers_adv', JSON.stringify(savedStickers));
+        }
+
+        function renderSticker(x, y, emoji) {
+            const el = document.createElement('div');
+            el.className = 'wall-sticker'; el.innerText = emoji;
+            el.style.left = x + 'px'; el.style.top = y + 'px';
+            wall.appendChild(el);
+        }
+        function clearWall() { localStorage.removeItem('tulip_stickers_adv'); wall.innerHTML = ''; }
+
+        // Modal
+        function showModal(t, b) {
+            document.getElementById('modal-title').innerText = t;
+            document.getElementById('modal-body').innerText = b;
+            document.getElementById('modal-overlay').classList.add('active');
+        }
+        function closeModal() { document.getElementById('modal-overlay').classList.remove('active'); }
+
+        // 3D Carousel
+        const cells = document.querySelectorAll('.photo-card');
+        const theta = 360 / cells.length;
+        const radius = Math.round((180 / 2) / Math.tan(Math.PI / cells.length)) + 50;
+        cells.forEach((cell, i) => { cell.style.transform = `rotateY(${theta * i}deg) translateZ(${radius}px)`; });
+
+        /* --- PARTICLES --- */
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        let particles = [];
+
+        function loveBomb() {
+            for(let i=0; i<30; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width, y: canvas.height + 10,
+                    vx: (Math.random() - 0.5) * 5, vy: -(Math.random() * 10 + 5),
+                    text: ['❤️','🌷','✨'][Math.floor(Math.random()*3)], alpha: 1
+                });
+            }
+        }
+        function animate() {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            particles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.alpha -= 0.01;
+                ctx.globalAlpha = p.alpha; ctx.font = "20px Serif"; ctx.fillText(p.text, p.x, p.y);
+                if(p.alpha <= 0) particles.splice(i, 1);
+            });
+            requestAnimationFrame(animate);
+        }
+        animate();
+        window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+    </script>
+</body>
+</html>
